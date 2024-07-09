@@ -1,16 +1,53 @@
 import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
+import { PublicKey } from '@solana/web3.js';
 import { SplBug } from "../target/types/spl_bug";
 
 describe("spl-bug", () => {
   // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const program = anchor.workspace.SplBug as Program<SplBug>;
+  const payer = provider.wallet as anchor.Wallet;
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
+  const program = anchor.workspace.SplBug as anchor.Program<SplBug>;
+
+  // PDA for the page visits account
+  const [pageVisitPDA] = PublicKey.findProgramAddressSync([
+    Buffer.from('page_visits'), 
+    payer.publicKey.toBuffer()
+  ], program.programId);
+
+  it("Create the page visits tracking PDA", async () => {
+    await program.methods.createPageVisits()
+      .accounts({
+        payer: payer.publicKey,
+        pageVisits: pageVisitPDA,
+      })
+      .rpc();
+  });
+
+  it('Visit the page!', async () => {
+    await program.methods
+      .incrementPageVisits()
+      .accounts({
+        user: payer.publicKey,
+        pageVisits: pageVisitPDA,
+      })
+      .rpc();
+  });
+
+  it('Visit the page!', async () => {
+    await program.methods
+      .incrementPageVisits()
+      .accounts({
+        user: payer.publicKey,
+        pageVisits: pageVisitPDA,
+      })
+      .rpc();
+  });
+
+  it('View page visits', async () => {
+    const pageVisits = await program.account.pageVisits.fetch(pageVisitPDA);
+    console.log(`Number of page visits: ${pageVisits.pageVisits}`);
   });
 });
